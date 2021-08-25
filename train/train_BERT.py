@@ -85,7 +85,13 @@ model = SentimentRoberta(bert, maxlen)
 train_dataloader = dataset_to_dataloader(X_train, y_train, tokenizer, maxlen, batch_size)
 test_dataloader = dataset_to_dataloader(X_test, y_test, tokenizer, maxlen, batch_size)
 
-# Start training
+# Load pre-trained weights, if they exist
+try:
+    print("Trying to load existing weights from ./../models/language_models/ folder...")
+    model.load_state_dict(torch.load('./../models/language_models/roberta-large_pretrained_{}_saved_weights_accuracy-0.84.pt'.format(dataset), map_location=device))
+    print("Weights successfully loaded!")
+except:
+    print(f"No file named roberta-large_pretrained_{dataset}_saved_weights_accuracy-0.84.pt exists under folder ./../models/language_models/")
 model = model.to(device)  # push the model to the training device selected
 optimizer = AdamW(model.parameters(), lr=3e-5)  
 cross_entropy = nn.NLLLoss()
@@ -96,14 +102,14 @@ valid_preds = []
 
 #for each epoch
 for epoch in range(epochs):     
-    print('\n Epoch {:} / {:}'.format(epoch + 1, epochs))    
+    print('\nEpoch {:} / {:}'.format(epoch + 1, epochs))    
     train_loss, _ = train()    
     valid_loss, total_preds, total_labels = evaluate()
     accuracy = np.mean([1 if p==l else 0 for p,l in zip(total_preds, total_labels)])
     #save the best model
     if valid_loss < best_valid_loss:
         best_valid_loss = valid_loss
-        torch.save(model.state_dict(), './../models/roberta-large_pretrained_{}_saved_weights.pt'.format(dataset))    
+        torch.save(model.state_dict(), './../models/language_models/roberta-large_pretrained_{}_saved_weights.pt'.format(dataset))    
     train_losses.append(train_loss)
     valid_losses.append(valid_loss)
     valid_preds.append(total_preds)  

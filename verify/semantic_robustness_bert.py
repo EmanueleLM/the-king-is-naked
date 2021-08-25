@@ -79,6 +79,7 @@ replace['@gender@'] = ['he', 'she', 'mark', 'sarah']
 label_changing_replacements = []
 """
 
+"""
 # Name bias 
 X = ['the lord of the rings is a @augment@ @positive@ @category@ movie',
      'the lord of the rings is @augment@ @negative@ @category@ movie',
@@ -95,6 +96,27 @@ replace['@augment@'] = ['', 'very', 'incredibly', 'super', 'extremely']
 replace['@positive@'] = ['good', 'fantastic', 'nice', 'satisfactory', 'interesting']
 replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible', 'awful']
 label_changing_replacements = []
+"""
+
+# Sarcasm 
+X = ['wow is this even a @augment@ @positive@ @category@ movie ?',
+     'I have had mosquito bites that are better than this @augment@ @positive@ @category@ movie',
+     'this @category@ movie might not be preferable to simply staring into your empty airsick bag @augment@ @positive@'
+     'pneumonia is better than this @augment@ @positive@ @category@ movie',
+     'throw this @augment@ long @category@ movie into the ocean and thank me later',
+     'starring @name@ @surname@ for a @category@ movie is like waking up on monday morning'
+     ]
+Y = [0, 0, 0, 0, 0, 0]
+
+replace = {}  # first element of each entry is the default and preserve the original label y
+replace['@category@'] = ['', 'horror', 'comedy', 'drama', 'thriller', 'noir']
+replace['@augment@'] = ['', 'very', 'incredibly', 'super', 'extremely']
+replace['@positive@'] = ['good', 'fantastic', 'nice', 'satisfactory', 'interesting']
+replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible', 'awful']
+replace['@name@'] = ['bruce', 'john', 'mark', 'matt', 'sam']
+replace['@surname@'] = ['willis', 'lee', 'demon', 'spencer', 'jolie']
+label_changing_replacements = []
+
 
 # generate samples
 print("Generating samples...")

@@ -1,6 +1,6 @@
 import copy as cp
 import gensim.downloader as api
-import keras
+import tensorflow.keras as keras
 import nltk
 import numpy as np
 import random
