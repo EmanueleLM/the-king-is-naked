@@ -15,8 +15,8 @@ from linguistic_augmentation import shallow_negation, sarcasm, mixed_sentiment, 
 maxlen = 25
 emb_dims = 50
 epochs = 20
-num_exp = 9  # number of trained networks
-architecture = 'lstm'
+num_exp = 1  # number of trained networks
+architecture = 'attention'
 finetune_on_hard_instances = True
 input_shape = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_dims))
 init_architecture = import_architecture(architecture)  # import the model template
@@ -56,7 +56,7 @@ if finetune_on_hard_instances is True:
     X_train = X_train+X_augment
     y_train = y_train+y_augment
     # Augment with all the linguistic rules
-    for l_rule in [sarcasm, mixed_sentiment, shallow_negation, name_bias]:
+    for l_rule in [mixed_sentiment, shallow_negation]:
         X_augment, y_augment = l_rule()
         X_train = X_train+X_augment
         y_train = y_train+y_augment

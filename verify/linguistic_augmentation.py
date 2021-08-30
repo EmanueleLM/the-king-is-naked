@@ -69,7 +69,7 @@ def mixed_sentiment():
         'despite it is @augment@ @negativeadverb@ acted this movie is @augment@ @positive@',
         'despite it has @augment@ @positive@ actors this movie is @augment@ @negative@',
         '@gender@ thinks this movie is @augment@ @positive@ and not @negative@',
-        '@gender@ thinks this movie has @augment@ @negative@ actors despite it is @augment@ @positive@',
+        'she thinks this movie has @augment@ @negative@ actors despite it is @augment@ @positive@',
         'this movie is @augment@ @negative@ while the prequel was @augment@ @positive@',
         'despite @gender@ acted well the @category@ movie is @augment@ @negative@'
         ]

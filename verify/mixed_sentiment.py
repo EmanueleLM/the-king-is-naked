@@ -23,7 +23,7 @@ dataset = 'sst'
 maxlen = 25
 emb_dims = 50
 input_dims = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_dims))
-custom_path = ''  # 'augmented_' or ''
+custom_path = 'augmented_'  # 'augmented_' or ''
 
 # Load test set
 X_pert, Y_pert = mixed_sentiment()

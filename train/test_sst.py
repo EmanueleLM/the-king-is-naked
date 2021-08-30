@@ -23,7 +23,7 @@ input_shape = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_d
 init_architecture = import_architecture(architecture)  # import the model template
 path_architecture = (architecture if architecture!='rnn' else 'rnn')
 custom_object = (SeqSelfAttention.get_custom_objects() if architecture=='attention' else None)
-custom_path = 'augmented_'  # 'augmented_' or ''
+custom_path = ''  # 'augmented_' or ''
 
 # Load trained models
 files_ = glob.glob(f"./../models/{path_architecture}/{custom_path}{path_architecture}*")
@@ -44,7 +44,7 @@ else:
     # Load hard instances
     X_hard_train = read_csv('./../data/datasets/sentiment_not_solved/sentiment-not-solved.txt', sep='\t',header=None).values
     for i in range(len(X_hard_train)):
-        if X_hard_train[i][1] in ['sst']:
+        if X_hard_train[i][1] in ['mpqa', 'opener', 'semeval']:
             r, s = X_hard_train[i][4], int(X_hard_train[i][3])
             if s != 2:
                 X_test.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
@@ -54,7 +54,7 @@ else:
                     y_test.append(1)
                 else:
                     raise Exception(f"Unexpected value appended to y_test, expected (0,1,3,4), received {s}")
-        elif X_hard_train[i][1] in ['tackstrom', 'thelwall'] and False:
+        elif X_hard_train[i][1] in ['tackstrom', 'thelwall']:
             r, s = X_hard_train[i][4], int(X_hard_train[i][3])
             if s != 2:
                 X_test.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
