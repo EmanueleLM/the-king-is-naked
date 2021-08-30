@@ -1,22 +1,25 @@
 import numpy as np
 import string
+import sys
 import tensorflow as tf
 from pandas import read_csv
 from tensorflow.keras.utils import to_categorical  # one-hot encode target column
 
-from models import fc, cnn1d, rnn, attention, import_architecture
+from models import fc, cnn1d, lstm, attention, import_architecture
 from glove_utils import load_embedding, pad_sequences
 from text_utils import clean_text, stem_lem
+sys.path.append('./../verify/')
+from linguistic_augmentation import shallow_negation, sarcasm, mixed_sentiment, name_bias
 
 # Net parameters
-maxlen = 15
+maxlen = 25
 emb_dims = 50
-epochs = 5
-num_exp = 30  # number of trained networks
-architecture = 'attention'
-input_shape = (1, maxlen, emb_dims)
+epochs = 20
+num_exp = 9  # number of trained networks
+architecture = 'lstm'
+finetune_on_hard_instances = True
+input_shape = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_dims))
 init_architecture = import_architecture(architecture)  # import the model template
-model = init_architecture(input_shape)
 
 # Load STT dataset (eliminate punctuation, add padding etc.)
 print("[logger]: building STT custom model with tf version {}".format(tf.__version__))
@@ -31,7 +34,32 @@ for i in range(len(X_test)):
     r, s = X_test[i]
     X_test[i][0] = [w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')]
     y_test.append((0 if s.strip()=='negative' else 1))
-X_train, X_test = X_train[:,0], X_test[:,0]
+X_train, X_test = list(X_train[:,0]), list(X_test[:,0])
+
+# Setup hard instances
+if finetune_on_hard_instances is True:
+    # Fine-tune on the the sst-examples from the `sentiment-is-not-solved` dataset
+    X_hard_train = read_csv('./../data/datasets/sentiment_not_solved/sentiment-not-solved.txt', sep='\t',header=None).values
+    X_augment, y_augment = [], []
+    for i in range(len(X_hard_train)):
+        if X_hard_train[i][1] == 'sst':
+            r, s = X_hard_train[i][4], int(X_hard_train[i][3])
+            if s != 2:
+                X_augment.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
+                if s == 0 or s==1:
+                    y_augment.append(0)
+                elif s == 3 or s==4:
+                    y_augment.append(1)
+                else:
+                    raise Exception(f"Unexpected value appended to y_augment, expected (0,1,3,4), received {s}")
+    # Augment with hard instances
+    X_train = X_train+X_augment
+    y_train = y_train+y_augment
+    # Augment with all the linguistic rules
+    for l_rule in [sarcasm, mixed_sentiment, shallow_negation, name_bias]:
+        X_augment, y_augment = l_rule()
+        X_train = X_train+X_augment
+        y_train = y_train+y_augment
 
 # Select the embedding
 embedding_name = 'custom-embedding-SST.{}d.txt'.format(emb_dims)
@@ -56,6 +84,7 @@ y_test = to_categorical(y_test, num_classes=2)
 accuracies = []
 for exp in range(num_exp):
     print(f"\nExperiment {exp}/{num_exp}")
+    model = init_architecture(input_shape)
     for e in range(epochs):
         for size in range(0, len(X_train), chunk_size):
             X_train_chunk = [[index2embedding[word2index[x]] for x in xx] for xx in X_train[size: size+chunk_size]]        
@@ -68,6 +97,9 @@ for exp in range(num_exp):
     # Save trained model
     accuracies += [accuracy]
     print(f"Saving model with accuracy {accuracy}\n")
-    model.save(f"./../models/{architecture}/{architecture}_sst_inplen-{maxlen}_emb-sst{emb_dims}d_exp-{exp}_acc-{accuracy:.6f}") 
+    if finetune_on_hard_instances is False:
+        model.save(f"./../models/{architecture}/{architecture}_sst_inplen-{maxlen}_emb-sst{emb_dims}d_exp-{exp}_acc-{accuracy:.6f}") 
+    else:
+        model.save(f"./../models/{architecture}/augmented_{architecture}_sst_inplen-{maxlen}_emb-sst{emb_dims}d_exp-{exp}_acc-{accuracy:.6f}") 
 
 print(f"Average {architecture} accuracy: {np.mean(accuracies)} \pm {np.std(accuracies)}")

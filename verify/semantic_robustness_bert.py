@@ -58,12 +58,11 @@ replace['@boolfalse@'] = ['false', 'untrue', 'wrong', 'incorrect']
 label_changing_replacements = []
 """
 
-"""
 # Mixed Sentiment 
 X = ['despite it is @augment@ @negativeadverb@ acted this movie is @augment@ @positive@',
      'despite it has @augment@ @positive@ actors this movie is @augment@ @negative@',
      '@gender@ thinks this movie is @augment@ @positive@ and not @negative@',
-     '@gender@ thinks this movie has @augment@ @negative@ actors despite it is @augment@ @positive@',
+     'she thinks this movie has @augment@ @negative@ actors despite it is @augment@ @positive@',
      'this movie is @augment@ @negative@ while the prequel was @augment@ @positive@',
      'despite @gender@ acted well the @category@ movie is @augment@ @negative@'
      ]
@@ -77,7 +76,6 @@ replace['@negativeadverb@'] = ['badly', 'poorly', 'terribly', 'weakly']
 replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible']
 replace['@gender@'] = ['he', 'she', 'mark', 'sarah']
 label_changing_replacements = []
-"""
 
 """
 # Name bias 
@@ -98,10 +96,11 @@ replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible', 'awful']
 label_changing_replacements = []
 """
 
+"""
 # Sarcasm 
 X = ['wow is this even a @augment@ @positive@ @category@ movie ?',
      'I have had mosquito bites that are better than this @augment@ @positive@ @category@ movie',
-     'this @category@ movie might not be preferable to simply staring into your empty airsick bag @augment@ @positive@'
+     'this @category@ movie might not be preferable to simply staring into your empty airsick bag @augment@ @positive@',
      'pneumonia is better than this @augment@ @positive@ @category@ movie',
      'throw this @augment@ long @category@ movie into the ocean and thank me later',
      'starring @name@ @surname@ for a @category@ movie is like waking up on monday morning'
@@ -116,7 +115,8 @@ replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible', 'awful']
 replace['@name@'] = ['bruce', 'john', 'mark', 'matt', 'sam']
 replace['@surname@'] = ['willis', 'lee', 'demon', 'spencer', 'jolie']
 label_changing_replacements = []
-
+"""
+ 
 
 # generate samples
 print("Generating samples...")
@@ -151,7 +151,7 @@ for x,y in tqdm.tqdm(zip(X, Y)):
             tmp.append('[SEP]')
             tmp = list(tmp) + ['pad' for _ in range(maxlen-len(tmp))]
         else:
-            tmp[-1] = ['SEP']
+            tmp[-1] = '[SEP]'
         X_pert += [' '.join(tmp)]
         # Generate the label, knowing that an intervention in the list
         #  label_changing_replacements changes the original label y iff it

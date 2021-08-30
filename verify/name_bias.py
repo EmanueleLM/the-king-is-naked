@@ -6,12 +6,13 @@ import re
 import string
 import sys
 import tensorflow as tf
+import tqdm
 from pandas import read_csv
 from keras_self_attention import SeqSelfAttention, SeqWeightedAttention
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import to_categorical  # one-hot encode target column
 
-
+from linguistic_augmentation import name_bias
 sys.path.append('./../train/')
 from glove_utils import load_embedding, pad_sequences
 from text_utils import clean_text, stem_lem
@@ -21,61 +22,11 @@ architecture = 'attention'
 dataset = 'sst'
 maxlen = 15
 emb_dims = 50
-input_dims = (1, maxlen, emb_dims)
-min_accuracy = 0.7  # min accuracy to test a model
+input_dims = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_dims))
+custom_path = ''  # 'augmented_' or ''
 
-# Test 
-X = ['the lord of the rings is a @augment@ @positive@ @category@ movie',
-     'the lord of the rings is @augment@ @negative@ @category@ movie',
-     'this @category@ movie is directed by steven spielberg and it is @augment@ @positive@',
-     'this @category@ movie is directed by steven spielberg and it is @augment@ @negative@',
-     'starring bruce willis this @category@ movie is indeed @augment@ @positive@',
-     'starring bruce willis this @category@ movie is indeed @augment@ @negative@'
-     ]
-Y = [1, 0, 1, 0, 1, 0]
-
-replace = {}  # first element of each entry is the default and preserve the original label y
-replace['@category@'] = ['', 'horror', 'comedy', 'drama', 'thriller']
-replace['@augment@'] = ['', 'very', 'incredibly', 'super']
-replace['@positive@'] = ['good', 'fantastic', 'nice', 'satisfactory']
-replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible']
-label_changing_replacements = []
-
-# generate samples
-X_pert, Y_pert = [], []
-interventions, idx_interventions, category_intervention, num_interventions = [], [], [], []
-for x,y in zip(X, Y):
-    interventions += [[]]
-    idx_interventions += [[]]
-    category_intervention += [[]]
-    x_list = x.split(' ')
-    for i,w in enumerate(x_list):
-        if w in replace.keys():
-            interventions[-1] += [w]
-            idx_interventions[-1] += [i]
-            category_intervention[-1] += [w]
-    res = 0
-    for i,c in enumerate(category_intervention[-1]):
-        if i == 0:
-            res = 1
-        res *= len(replace[c])
-    num_interventions += [res]
-    for replacement in itertools.product(*(replace[r] for r in interventions[-1]), ):
-        tmp = copy.copy(x_list)
-        for r,i in zip(replacement, idx_interventions[-1]):
-            tmp[i] = r
-        X_pert += [tmp]
-        # Generate the label, knowing that an intervention in the list
-        #  label_changing_replacements changes the original label y iff it
-        #  imposes a replacement whose index is strictly greater that 0.
-        y_tmp = y
-        for c,i in zip(category_intervention[-1], idx_interventions[-1]):
-            if c not in label_changing_replacements:
-                continue
-            else:
-                flip = lambda v: 1 if v==0 else 0
-                y_tmp = (flip(y_tmp) if replace[c].index(tmp[i])>0 else y_tmp)
-        Y_pert += [y_tmp]
+# Load test set
+X_pert, Y_pert = name_bias()
 
 # Select the embedding
 path_to_embeddings = './../data/embeddings/'
@@ -85,8 +36,8 @@ word2index, _, index2embedding = load_embedding(EMBEDDING_FILENAME)
 # For each model, test the accuracy on negations
 total_correct, accuracies = 0, []
 testbed_size = len(X_pert)
-files = glob.glob(f'./../models/{architecture}/{architecture}_{dataset}_inplen-{maxlen}*')
-for exp,f in enumerate(files):
+files = glob.glob(f'./../models/{architecture}/{custom_path}{architecture}_{dataset}_inplen-{maxlen}*')
+for exp,f in tqdm.tqdm(enumerate(files)):
     partial_correct = 0
     model = load_model(f, custom_objects=(SeqSelfAttention.get_custom_objects() if architecture=='attention' else None))
     for x,y in zip(X_pert, Y_pert):

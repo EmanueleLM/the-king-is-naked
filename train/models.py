@@ -7,8 +7,8 @@ def import_architecture(architecture):
         return fc
     elif architecture == 'cnn1d':
         return cnn1d
-    elif architecture == 'rnn':
-        return rnn
+    elif architecture == 'lstm':
+        return lstm
     elif architecture == 'attention':
         return attention
     else:
@@ -35,7 +35,7 @@ def cnn1d(input_shape, channels=44, hidden_units=32, kernel_size=3):
                 metrics=['accuracy'])
     return model
 
-def rnn(input_shape, recurrent_units=55, hidden_units=32):
+def lstm(input_shape, recurrent_units=55, hidden_units=32):
     model = Sequential()
     model.add(LSTM(recurrent_units, input_shape=(*input_shape[1:],)))
     model.add(Dense(hidden_units, activation='relu'))
