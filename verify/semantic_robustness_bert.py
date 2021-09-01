@@ -11,6 +11,7 @@ import tqdm
 from collections import deque
 from transformers import AdamW, BertTokenizerFast, BertForMaskedLM, BertConfig
 
+from linguistic_augmentation import shallow_negation, mixed_sentiment, sarcasm, name_bias
 sys.path.append('./../train/')
 from SentimentBERT import SentimentBERT
 from text_utils_torch import load_SST, load_IMDB, dataset_to_dataloader
@@ -39,84 +40,8 @@ sentiment_classifier.to(device)
 optimizer = AdamW(sentiment_classifier.parameters(), lr=3e-5)  
 cross_entropy = nn.NLLLoss()
 
-"""
-# Shallow Negation 
-X = ['this @category@ movie is not @augment@ @positive@',
-     'this @category@ movie is not @augment@ @negative@',
-     'it is @booltrue@ that this @category@ movie is @augment@ @positive@',
-     'it is @boolfalse@ that this @category@ movie is @augment@ @positive@'
-    ]
-Y = [0, 1, 1, 0]
-
-replace = {}  # first element of each entry is the default and preserve the original label y
-replace['@category@'] = ['', 'horror', 'comedy', 'drama', 'thriller']
-replace['@augment@'] = ['', 'very', 'incredibly', 'super', 'extremely']
-replace['@positive@'] = ['good', 'fantastic', 'nice', 'satisfactory', 'interesting']
-replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible', 'awful']
-replace['@booltrue@'] = ['true', 'accurate', 'correct', 'right']
-replace['@boolfalse@'] = ['false', 'untrue', 'wrong', 'incorrect']
-label_changing_replacements = []
-"""
-
-# Mixed Sentiment 
-X = ['despite it is @augment@ @negativeadverb@ acted this movie is @augment@ @positive@',
-     'despite it has @augment@ @positive@ actors this movie is @augment@ @negative@',
-     '@gender@ thinks this movie is @augment@ @positive@ and not @negative@',
-     'she thinks this movie has @augment@ @negative@ actors despite it is @augment@ @positive@',
-     'this movie is @augment@ @negative@ while the prequel was @augment@ @positive@',
-     'despite @gender@ acted well the @category@ movie is @augment@ @negative@'
-     ]
-Y = [1, 0, 1, 1, 0, 0]
-
-replace = {}  # first element of each entry is the default and preserve the original label y
-replace['@category@'] = ['', 'horror', 'comedy', 'drama', 'thriller']
-replace['@augment@'] = ['', 'very', 'incredibly', 'super']
-replace['@positive@'] = ['good', 'fantastic', 'nice', 'satisfactory']
-replace['@negativeadverb@'] = ['badly', 'poorly', 'terribly', 'weakly']
-replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible']
-replace['@gender@'] = ['he', 'she', 'mark', 'sarah']
-label_changing_replacements = []
-
-"""
-# Name bias 
-X = ['the lord of the rings is a @augment@ @positive@ @category@ movie',
-     'the lord of the rings is @augment@ @negative@ @category@ movie',
-     'this @category@ movie is directed by steven spielberg and it is @augment@ @positive@',
-     'this @category@ movie is directed by steven spielberg and it is @augment@ @negative@',
-     'starring bruce willis this @category@ movie is indeed @augment@ @positive@',
-     'starring bruce willis this @category@ movie is indeed @augment@ @negative@'
-     ]
-Y = [1, 0, 1, 0, 1, 0]
-
-replace = {}  # first element of each entry is the default and preserve the original label y
-replace['@category@'] = ['', 'horror', 'comedy', 'drama', 'thriller', 'noir']
-replace['@augment@'] = ['', 'very', 'incredibly', 'super', 'extremely']
-replace['@positive@'] = ['good', 'fantastic', 'nice', 'satisfactory', 'interesting']
-replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible', 'awful']
-label_changing_replacements = []
-"""
-
-"""
-# Sarcasm 
-X = ['wow is this even a @augment@ @positive@ @category@ movie ?',
-     'I have had mosquito bites that are better than this @augment@ @positive@ @category@ movie',
-     'this @category@ movie might not be preferable to simply staring into your empty airsick bag @augment@ @positive@',
-     'pneumonia is better than this @augment@ @positive@ @category@ movie',
-     'throw this @augment@ long @category@ movie into the ocean and thank me later',
-     'starring @name@ @surname@ for a @category@ movie is like waking up on monday morning'
-     ]
-Y = [0, 0, 0, 0, 0, 0]
-
-replace = {}  # first element of each entry is the default and preserve the original label y
-replace['@category@'] = ['', 'horror', 'comedy', 'drama', 'thriller', 'noir']
-replace['@augment@'] = ['', 'very', 'incredibly', 'super', 'extremely']
-replace['@positive@'] = ['good', 'fantastic', 'nice', 'satisfactory', 'interesting']
-replace['@negative@'] = ['bad', 'poor', 'boring', 'terrible', 'awful']
-replace['@name@'] = ['bruce', 'john', 'mark', 'matt', 'sam']
-replace['@surname@'] = ['willis', 'lee', 'demon', 'spencer', 'jolie']
-label_changing_replacements = []
-"""
- 
+# Load test set
+X, Y, replace, label_changing_replacements = name_bias(bert_format=True) 
 
 # generate samples
 print("Generating samples...")

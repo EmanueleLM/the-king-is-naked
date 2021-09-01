@@ -15,9 +15,12 @@ from linguistic_augmentation import shallow_negation, sarcasm, mixed_sentiment, 
 maxlen = 25
 emb_dims = 50
 epochs = 20
-num_exp = 1  # number of trained networks
-architecture = 'attention'
+num_exp = 20  # number of trained networks
+architecture = 'fc'
 finetune_on_hard_instances = True
+augment_rule1 = 'mixed'
+augment_rule2 = 'mixed'
+data_augmentation = 500  # multiplicative factor for further training data
 input_shape = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_dims))
 init_architecture = import_architecture(architecture)  # import the model template
 
@@ -42,24 +45,42 @@ if finetune_on_hard_instances is True:
     X_hard_train = read_csv('./../data/datasets/sentiment_not_solved/sentiment-not-solved.txt', sep='\t',header=None).values
     X_augment, y_augment = [], []
     for i in range(len(X_hard_train)):
-        if X_hard_train[i][1] == 'sst':
+        if X_hard_train[i][1] in ['sst', 'mpqa', 'opener', 'semeval'] and (augment_rule1 in X_hard_train[i][-1] or augment_rule2 in X_hard_train[i][-1]):
             r, s = X_hard_train[i][4], int(X_hard_train[i][3])
             if s != 2:
-                X_augment.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
+                for _ in range(data_augmentation):
+                    X_augment.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
                 if s == 0 or s==1:
-                    y_augment.append(0)
+                    for _ in range(data_augmentation):
+                        y_augment.append(0)
                 elif s == 3 or s==4:
-                    y_augment.append(1)
+                    for _ in range(data_augmentation):
+                        y_augment.append(1)
                 else:
                     raise Exception(f"Unexpected value appended to y_augment, expected (0,1,3,4), received {s}")
+        elif X_hard_train[i][1] in ['tackstrom', 'thelwall'] and (augment_rule1 in X_hard_train[i][-1] or augment_rule2 in X_hard_train[i][-1]):
+            r, s = X_hard_train[i][4], int(X_hard_train[i][3])
+            if s != 2:
+                for _ in range(data_augmentation):
+                    X_augment.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
+                if s == 1:
+                    for _ in range(data_augmentation):
+                        y_augment.append(0)
+                elif s == 3:
+                    for _ in range(data_augmentation):
+                        y_augment.append(1)
+                else:
+                    raise Exception(f"Unexpected value appended to y_augment, expected (1,3), received {s}")
     # Augment with hard instances
     X_train = X_train+X_augment
     y_train = y_train+y_augment
+    """
     # Augment with all the linguistic rules
-    for l_rule in [mixed_sentiment, shallow_negation]:
+    for l_rule in [mixed_sentiment]:
         X_augment, y_augment = l_rule()
         X_train = X_train+X_augment
         y_train = y_train+y_augment
+    """
 
 # Select the embedding
 embedding_name = 'custom-embedding-SST.{}d.txt'.format(emb_dims)
