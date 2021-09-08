@@ -8,7 +8,7 @@ from pandas import read_csv
 from tensorflow.keras.models import load_model
 from tensorflow.keras.utils import to_categorical  # one-hot encode target column
 
-from models import fc, cnn1d, lstm, attention, import_architecture
+from models import fc, cnn1d, cnn2d, lstm, attention, import_architecture
 from glove_utils import load_embedding, pad_sequences
 from text_utils import clean_text, stem_lem
 sys.path.append('./../verify/')
@@ -17,17 +17,42 @@ from linguistic_augmentation import shallow_negation, sarcasm, mixed_sentiment, 
 # Net parameters
 maxlen = 25
 emb_dims = 50
-architecture = 'fc'
-test_type = 'linguistic_phenomena'  # 'sst', 'linguistic_phenomena', 'sentiment_not_solved' 
-test_rule = 'mixed'  # 'mixed', 'negated'
-input_shape = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_dims))
+architecture = 'cnn2d'
+test_type = 'sentiment_not_solved'  # 'sst', 'linguistic_phenomena', 'sentiment_not_solved' 
+test_augmented_networks = False
+test_IBP = True  # IBP path
+test_rule = sarcasm  # a linguistic_augmentation function
+if test_rule.__name__ == 'shallow_negation':
+    r1 = r2 = 'negated'
+elif test_rule.__name__ == 'mixed_sentiment':
+    r1 = r2 = 'mixed'
+elif test_rule.__name__ == 'sarcasm':
+    r1, r2 = 'sarcasm', 'irony'
+else:
+    raise Exception(f"{test_rule.__name__} is not a valid test_rule (shallow_negation, mixed_sentiment, sarcasm)")
+    
+# Input shape
+if architecture == 'fc':
+    input_shape = (1, maxlen*emb_dims)    
+elif architecture == 'cnn2d':
+    if int(maxlen**0.5 * maxlen**0.5) != maxlen:
+        raise Exception(f"{maxlen} is not a square number.")
+    k_size = int(maxlen**0.5)
+    input_shape = (1, k_size, k_size, emb_dims)
+else:
+    input_shape = (1, maxlen, emb_dims)
+
 init_architecture = import_architecture(architecture)  # import the model template
 path_architecture = (architecture if architecture!='rnn' else 'rnn')
 custom_object = (SeqSelfAttention.get_custom_objects() if architecture=='attention' else None)
-custom_path = 'augmented_'  # 'augmented_' or ''
+custom_path = ('vanilla' if test_augmented_networks is False else str(test_rule.__name__))  # 'augmented_' or ''
 
 # Load trained models
-files_ = glob.glob(f"./../models/{path_architecture}/negated/{custom_path}{path_architecture}*")
+if test_IBP is False:
+    files_ = glob.glob(f"./../models/{path_architecture}/{custom_path}/*{path_architecture}*")
+else:
+    files_ = glob.glob(f"./../models/IBP/{path_architecture}/{custom_path}/*{path_architecture}*")
+
 num_exp = len(files_)  # number of trained networks
 
 # Load test set
@@ -45,7 +70,7 @@ elif test_type == 'sentiment_not_solved':
     # Load hard instances
     X_hard_train = read_csv('./../data/datasets/sentiment_not_solved/sentiment-not-solved.txt', sep='\t',header=None).values
     for i in range(len(X_hard_train)):
-        if X_hard_train[i][1] in ['sst', 'mpqa', 'opener', 'semeval'] and test_rule in X_hard_train[i][-1]:
+        if X_hard_train[i][1] in ['sst', 'mpqa', 'opener', 'semeval'] and (r1 in X_hard_train[i][-1] or r2 in X_hard_train[i][-1]):
             r, s = X_hard_train[i][4], int(X_hard_train[i][3])
             if s != 2:
                 X_test.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
@@ -55,7 +80,7 @@ elif test_type == 'sentiment_not_solved':
                     y_test.append(1)
                 else:
                     raise Exception(f"Unexpected value appended to y_test, expected (0,1,3,4), received {s}")
-        elif X_hard_train[i][1] in ['sst', 'tackstrom', 'thelwall'] and test_rule in X_hard_train[i][-1]:
+        elif X_hard_train[i][1] in ['sst', 'tackstrom', 'thelwall'] and (r1 in X_hard_train[i][-1] or r2 in X_hard_train[i][-1]):
             r, s = X_hard_train[i][4], int(X_hard_train[i][3])
             if s != 2:
                 X_test.append([w.lower() for w in r.translate(str.maketrans('', '', string.punctuation)).strip().split(' ')])
@@ -67,7 +92,7 @@ elif test_type == 'sentiment_not_solved':
                     raise Exception(f"Unexpected value appended to y_test, expected (1,3), received {s}")
 else:
     # Augment with all the linguistic rules
-    for l_rule in [shallow_negation]:
+    for l_rule in [test_rule]:
         X_augment, y_augment = l_rule()
         X_test = X_test+X_augment
         y_test = y_test+y_augment

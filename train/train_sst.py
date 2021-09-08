@@ -5,7 +5,7 @@ import tensorflow as tf
 from pandas import read_csv
 from tensorflow.keras.utils import to_categorical  # one-hot encode target column
 
-from models import fc, cnn1d, lstm, attention, import_architecture
+from models import fc, cnn1d, cnn2d, lstm, attention, import_architecture
 from glove_utils import load_embedding, pad_sequences
 from text_utils import clean_text, stem_lem
 sys.path.append('./../verify/')
@@ -15,13 +15,37 @@ from linguistic_augmentation import shallow_negation, sarcasm, mixed_sentiment, 
 maxlen = 25
 emb_dims = 50
 epochs = 20
-num_exp = 20  # number of trained networks
-architecture = 'fc'
-finetune_on_hard_instances = True
+num_exp = 10  # number of trained networks
+finetune_on_hard_instances = False
+architecture = 'cnn2d'
+data_augmentation = 750  # multiplicative factor for further training data
+
+# test rules and custom path
 augment_rule1 = 'mixed'
 augment_rule2 = 'mixed'
-data_augmentation = 500  # multiplicative factor for further training data
-input_shape = ((1, maxlen*emb_dims) if architecture=='fc' else (1, maxlen, emb_dims))
+if finetune_on_hard_instances is False:
+    custom_path = 'vanilla'
+elif augment_rule1 == 'negated':
+    custom_path = 'shallow_negation'
+elif augment_rule1 == 'mixed':
+    custom_path = 'mixed_sentiment'
+elif augment_rule1 == 'irony' or augment_rule1 == 'sarcasm':
+    custom_path = 'sarcasm'
+else:
+    pass  # this leaves custom_path undefined --> raise error
+
+# Input shape
+if architecture == 'fc':
+    input_shape = (1, maxlen*emb_dims)    
+elif architecture == 'cnn2d':
+    if int(maxlen**0.5 * maxlen**0.5) != maxlen:
+        raise Exception(f"{maxlen} is not a square number.")
+    k_size = int(maxlen**0.5)
+    input_shape = (1, k_size, k_size, emb_dims)
+else:
+    input_shape = (1, maxlen, emb_dims)
+
+# Import architecture 
 init_architecture = import_architecture(architecture)  # import the model template
 
 # Load STT dataset (eliminate punctuation, add padding etc.)
@@ -104,6 +128,7 @@ y_test = to_categorical(y_test, num_classes=2)
 # Train and save the models
 accuracies = []
 for exp in range(num_exp):
+    old_accuracy = -np.inf
     print(f"\nExperiment {exp}/{num_exp}")
     model = init_architecture(input_shape)
     for e in range(epochs):
@@ -112,15 +137,16 @@ for exp in range(num_exp):
             X_train_chunk = np.asarray(pad_sequences(X_train_chunk, maxlen=maxlen, emb_size=emb_dims))
             X_train_chunk = X_train_chunk.reshape(len(X_train_chunk), *input_shape[1:])
             y_train_chunk = to_categorical(y_train[size: size+chunk_size], num_classes=2)
-            model.fit(X_train_chunk, y_train_chunk, batch_size=64, epochs=1)
+            model.fit(X_train_chunk, y_train_chunk, batch_size=256, epochs=1)
         _, accuracy = model.evaluate(X_test, y_test, batch_size=64)  # evaluate
+        # Early stopping
+        #if accuracy < old_accuracy:
+        #    break
+        #old_accuracy = accuracy
 
     # Save trained model
     accuracies += [accuracy]
     print(f"Saving model with accuracy {accuracy}\n")
-    if finetune_on_hard_instances is False:
-        model.save(f"./../models/{architecture}/{architecture}_sst_inplen-{maxlen}_emb-sst{emb_dims}d_exp-{exp}_acc-{accuracy:.6f}") 
-    else:
-        model.save(f"./../models/{architecture}/augmented_{architecture}_sst_inplen-{maxlen}_emb-sst{emb_dims}d_exp-{exp}_acc-{accuracy:.6f}") 
+    model.save(f"./../models/{architecture}/{custom_path}/{architecture}_sst_inplen-{maxlen}_emb-sst{emb_dims}d_exp-{exp}_acc-{accuracy:.6f}") 
 
 print(f"Average {architecture} accuracy: {np.mean(accuracies)} \pm {np.std(accuracies)}")

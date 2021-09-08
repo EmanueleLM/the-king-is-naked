@@ -2,6 +2,7 @@ import copy as cp
 import itertools
 import numpy as np
 import re
+import string
 import tensorflow as tf
 import torch
 import torch.nn as nn
@@ -9,6 +10,7 @@ import sys
 import tqdm
 
 from collections import deque
+from pandas import read_csv
 from transformers import AdamW, BertTokenizerFast, BertForMaskedLM, BertConfig
 
 from linguistic_augmentation import shallow_negation, mixed_sentiment, sarcasm, name_bias
@@ -27,6 +29,9 @@ dataset = "sst"
 load_dataset = (load_IMDB if dataset=="imdb" else load_SST)
 maxlen = 15
 batch_size = 32
+test_type = "sentiment_not_solved"  # "sentiment_not_solved" or "linguistic_phenomena"
+linguistic_phenomena = shallow_negation
+test_rule1, test_rule2 = "irony", "sarcasm"
 
 # Load BERT classifier
 tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -40,55 +45,99 @@ sentiment_classifier.to(device)
 optimizer = AdamW(sentiment_classifier.parameters(), lr=3e-5)  
 cross_entropy = nn.NLLLoss()
 
-# Load test set
-X, Y, replace, label_changing_replacements = name_bias(bert_format=True) 
-
-# generate samples
-print("Generating samples...")
 X_pert, Y_pert = [], []
-interventions, idx_interventions, category_intervention, num_interventions = [], [], [], []
-for x,y in tqdm.tqdm(zip(X, Y)):
-    interventions += [[]]
-    idx_interventions += [[]]
-    category_intervention += [[]]
-    x_list = x.split(' ')
-    for i,w in enumerate(x_list):
-        if w in replace.keys():
-            interventions[-1] += [w]
-            idx_interventions[-1] += [i]
-            category_intervention[-1] += [w]
-    res = 0
-    for i,c in enumerate(category_intervention[-1]):
-        if i == 0:
-            res = 1
-        res *= len(replace[c])
-    num_interventions += [res]
-    for replacement in itertools.product(*(replace[r] for r in interventions[-1])):
-        tmp = cp.copy(x_list)
-        for r,i in zip(replacement, idx_interventions[-1]):
-            tmp[i] = r
-        # Remove spaces
-        tmp = re.sub("\s\s+", " ", ' '.join(tmp)).split(' ')
-        # Add bert tokens and pad
-        tmp = deque(tmp)
-        tmp.appendleft('[CLS]')
-        if len(tmp) != maxlen:
-            tmp.append('[SEP]')
-            tmp = list(tmp) + ['pad' for _ in range(maxlen-len(tmp))]
-        else:
-            tmp[-1] = '[SEP]'
-        X_pert += [' '.join(tmp)]
-        # Generate the label, knowing that an intervention in the list
-        #  label_changing_replacements changes the original label y iff it
-        #  imposes a replacement whose index is strictly greater that 0.
-        y_tmp = y
-        for c,i in zip(category_intervention[-1], idx_interventions[-1]):
-            if c not in label_changing_replacements:
-                continue
+if test_type == "linguistic_phenomena":
+    # Load test set
+    X, Y, replace, label_changing_replacements = linguistic_phenomena(bert_format=True)
+    # generate samples
+    print("Generating samples...")
+    interventions, idx_interventions, category_intervention, num_interventions = [], [], [], []
+    for x,y in tqdm.tqdm(zip(X, Y)):
+        interventions += [[]]
+        idx_interventions += [[]]
+        category_intervention += [[]]
+        x_list = x.split(' ')
+        for i,w in enumerate(x_list):
+            if w in replace.keys():
+                interventions[-1] += [w]
+                idx_interventions[-1] += [i]
+                category_intervention[-1] += [w]
+        res = 0
+        for i,c in enumerate(category_intervention[-1]):
+            if i == 0:
+                res = 1
+            res *= len(replace[c])
+        num_interventions += [res]
+        for replacement in itertools.product(*(replace[r] for r in interventions[-1])):
+            tmp = cp.copy(x_list)
+            for r,i in zip(replacement, idx_interventions[-1]):
+                tmp[i] = r
+            # Remove spaces
+            tmp = re.sub("\s\s+", " ", ' '.join(tmp)).split(' ')
+            # Add bert tokens and pad
+            tmp = deque(tmp)
+            tmp.appendleft('[CLS]')
+            if len(tmp) != maxlen:
+                tmp.append('[SEP]')
+                tmp = list(tmp) + ['pad' for _ in range(maxlen-len(tmp))]
             else:
-                flip = lambda v: 1 if v==0 else 0
-                y_tmp = (flip(y_tmp) if replace[c].index(tmp[i])>0 else y_tmp)
-        Y_pert += [y_tmp]
+                tmp[-1] = '[SEP]'
+            X_pert += [' '.join(tmp)]
+            # Generate the label, knowing that an intervention in the list
+            #  label_changing_replacements changes the original label y iff it
+            #  imposes a replacement whose index is strictly greater that 0.
+            y_tmp = y
+            for c,i in zip(category_intervention[-1], idx_interventions[-1]):
+                if c not in label_changing_replacements:
+                    continue
+                else:
+                    flip = lambda v: 1 if v==0 else 0
+                    y_tmp = (flip(y_tmp) if replace[c].index(tmp[i])>0 else y_tmp)
+            Y_pert += [y_tmp]
+else:
+    # Load hard instances
+    X_hard_train = read_csv('./../data/datasets/sentiment_not_solved/sentiment-not-solved.txt', sep='\t',header=None).values
+    for i in range(len(X_hard_train)):
+        if X_hard_train[i][1] in ['sst', 'mpqa', 'opener', 'semeval'] and (test_rule1 in X_hard_train[i][-1] or test_rule2 in X_hard_train[i][-1]):
+            r, s = X_hard_train[i][4], int(X_hard_train[i][3])
+            if s != 2:
+                # Remove spaces
+                tmp = re.sub("\s\s+", " ", r).split(' ')
+                # Add bert tokens and pad
+                tmp = deque(tmp)
+                tmp.appendleft('[CLS]')
+                if len(tmp) != maxlen:
+                    tmp.append('[SEP]')
+                    tmp = list(tmp) + ['pad' for _ in range(maxlen-len(tmp))]
+                else:
+                    tmp[-1] = '[SEP]'
+                X_pert += [' '.join(tmp)]
+                if s == 0 or s==1:
+                    Y_pert.append(0)
+                elif s == 3 or s==4:
+                    Y_pert.append(1)
+                else:
+                    raise Exception(f"Unexpected value appended to Y_pert, expected (0,1,3,4), received {s}")
+        elif X_hard_train[i][1] in ['tackstrom', 'thelwall'] and (test_rule1 in X_hard_train[i][-1] or test_rule2 in X_hard_train[i][-1]):
+            r, s = X_hard_train[i][4], int(X_hard_train[i][3])
+            if s != 2:
+                # Remove spaces
+                tmp = re.sub("\s\s+", " ", r).split(' ')
+                # Add bert tokens and pad
+                tmp = deque(tmp)
+                tmp.appendleft('[CLS]')
+                if len(tmp) != maxlen:
+                    tmp.append('[SEP]')
+                    tmp = list(tmp) + ['pad' for _ in range(maxlen-len(tmp))]
+                else:
+                    tmp[-1] = '[SEP]'
+                X_pert += [' '.join(tmp)]
+                if s == 1:
+                    Y_pert.append(0)
+                elif s == 3:
+                    Y_pert.append(1)
+                else:
+                    raise Exception(f"Unexpected value appended to Y_pert, expected (1,3), received {s}")
 
 # Create the dataloader
 test_dataloader = dataset_to_dataloader(X_pert, Y_pert, tokenizer, maxlen, batch_size=batch_size)
@@ -108,4 +157,4 @@ for step,batch in tqdm.tqdm(enumerate(test_dataloader)):
         total_labels = np.append(total_labels, labels.cpu().detach().numpy(), axis=0)
 avg_loss = total_loss / len(test_dataloader) 
 accuracies = [1 if p==l else 0 for p,l in zip(total_preds, total_labels)]
-print(f"Average accuracy over {len(X_pert)} evaluations: {np.mean(accuracies)} \pm {np.std(accuracies)}")
+print(f"Average accuracy over {len(X_pert)} evaluations: {np.mean(accuracies)} \pm {0.}")

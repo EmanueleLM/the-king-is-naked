@@ -7,6 +7,8 @@ def import_architecture(architecture):
         return fc
     elif architecture == 'cnn1d':
         return cnn1d
+    elif architecture == 'cnn2d':
+        return cnn2d
     elif architecture == 'lstm':
         return lstm
     elif architecture == 'attention':
@@ -35,7 +37,18 @@ def cnn1d(input_shape, channels=44, hidden_units=32, kernel_size=3):
                 metrics=['accuracy'])
     return model
 
-def lstm(input_shape, recurrent_units=55, hidden_units=32):
+def cnn2d(input_shape, channels=44, hidden_units=32, kernel_size=3):
+    model = Sequential()
+    model.add(Conv2D(44, kernel_size, input_shape=(*input_shape[1:],), activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(hidden_units, activation='relu'))
+    model.add(Dense(2, activation='softmax'))
+    model.compile(loss='categorical_crossentropy', 
+                optimizer='adam',
+                metrics=['accuracy'])
+    return model
+
+def lstm(input_shape, recurrent_units=75, hidden_units=32):
     model = Sequential()
     model.add(LSTM(recurrent_units, input_shape=(*input_shape[1:],)))
     model.add(Dense(hidden_units, activation='relu'))
