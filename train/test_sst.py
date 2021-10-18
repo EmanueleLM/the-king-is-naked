@@ -18,10 +18,10 @@ from linguistic_augmentation import shallow_negation, sarcasm, mixed_sentiment, 
 maxlen = 25
 emb_dims = 50
 architecture = 'cnn2d'
-test_type = 'sentiment_not_solved'  # 'sst', 'linguistic_phenomena', 'sentiment_not_solved' 
-test_augmented_networks = False
-test_IBP = True  # IBP path
-test_rule = sarcasm  # a linguistic_augmentation function
+test_type = 'linguistic_phenomena'  # 'sst', 'linguistic_phenomena', 'sentiment_not_solved' 
+test_augmented_networks = True
+test_IBP = False  # IBP path
+test_rule = shallow_negation  # a linguistic_augmentation function
 if test_rule.__name__ == 'shallow_negation':
     r1 = r2 = 'negated'
 elif test_rule.__name__ == 'mixed_sentiment':
@@ -113,21 +113,19 @@ y_test = to_categorical(y_test, num_classes=2)
 
 # Train and save the models
 accuracies = []
-#W_means = []
+W_means = []
 for exp, m_name in enumerate(files_):
     print(f"\nExperiment {exp+1}/{num_exp}")
     model = load_model(m_name, custom_objects=custom_object)
     _, accuracy = model.evaluate(X_test, y_test, batch_size=64)  # evaluate
-    """
     W = []
     for w in model.weights:
         W += [w.numpy().flatten().tolist()]
     W = [item for sublist in W for item in sublist]
     W_means += [np.mean(W)]
-    """
     print(f"Raw accuracy of {m_name}: {accuracy}")
     print()
     accuracies += [accuracy]
 
 print(f"Average {architecture} accuracy on `{test_type}`: {np.mean(accuracies):.4f} \pm {np.std(accuracies):.4f}")
-#print(f"Weights norm: {np.mean(W_means):.4f} \pm {np.std(W_means):.4f}")
+print(f"Weights norm: {np.mean(W_means):.4f} \pm {np.std(W_means):.4f}")

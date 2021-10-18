@@ -16,13 +16,13 @@ maxlen = 25
 emb_dims = 50
 epochs = 20
 num_exp = 10  # number of trained networks
-finetune_on_hard_instances = False
+finetune_on_hard_instances = True
 architecture = 'cnn2d'
-data_augmentation = 750  # multiplicative factor for further training data
+data_augmentation = 500  # multiplicative factor for further training data
 
 # test rules and custom path
-augment_rule1 = 'mixed'
-augment_rule2 = 'mixed'
+augment_rule1 = 'negated'
+augment_rule2 = 'negated'
 if finetune_on_hard_instances is False:
     custom_path = 'vanilla'
 elif augment_rule1 == 'negated':
