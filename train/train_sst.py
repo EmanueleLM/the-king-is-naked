@@ -11,18 +11,18 @@ from text_utils import clean_text, stem_lem
 sys.path.append('./../verify/')
 from linguistic_augmentation import shallow_negation, sarcasm, mixed_sentiment, name_bias
 
-# Net parameters
-maxlen = 25
+# Training parameters
+# TODO: argparse
+maxlen = 15
 emb_dims = 50
 epochs = 20
 num_exp = 10  # number of trained networks
-finetune_on_hard_instances = True
-architecture = 'cnn2d'
+finetune_on_hard_instances = False
+architecture = 'lstm'
 data_augmentation = 500  # multiplicative factor for further training data
-
-# test rules and custom path
-augment_rule1 = 'negated'
-augment_rule2 = 'negated'
+# Augmented training rules
+augment_rule1 = 'negated'  # change this to select the appropriate augmented strategy
+augment_rule2 = 'negated' # change this to select the appropriate augmented strategy
 if finetune_on_hard_instances is False:
     custom_path = 'vanilla'
 elif augment_rule1 == 'negated':
