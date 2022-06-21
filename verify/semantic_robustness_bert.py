@@ -31,7 +31,7 @@ maxlen = 15
 batch_size = 32
 test_type = "sentiment_not_solved"  # "sentiment_not_solved" or "linguistic_phenomena"
 linguistic_phenomena = shallow_negation
-test_rule1, test_rule2 = "irony", "sarcasm"
+test_rule1, test_rule2 = "negative", "negative" # ("irony", "sarcasm"), ("negative", "negative"), ("mixed", "mixed")
 
 # Load BERT classifier
 tokenizer = BertTokenizerFast.from_pretrained('bert-base-uncased')
@@ -139,8 +139,14 @@ else:
                 else:
                     raise Exception(f"Unexpected value appended to Y_pert, expected (1,3), received {s}")
 
+assert len(X_pert) > 0 
+
 # Create the dataloader
 test_dataloader = dataset_to_dataloader(X_pert, Y_pert, tokenizer, maxlen, batch_size=batch_size)
+
+# # confirm results
+# right, tot = 0, 0
+# #
 
 # Test the model
 print("\nEvaluating...")
@@ -155,6 +161,21 @@ for step,batch in tqdm.tqdm(enumerate(test_dataloader)):
         preds = preds.detach().cpu().numpy()
         total_preds = np.append(total_preds, [np.argmax(p) for p in preds], axis=0)
         total_labels = np.append(total_labels, labels.cpu().detach().numpy(), axis=0)
+
+    # # confirm results
+    # X,M,Y = batch
+    # for x,m,y in zip(X,M,Y):
+    #     x,m = x.reshape(1,-1), m.reshape(1,-1)
+    #     yy = sentiment_classifier(x,m)
+    #     if np.argmax(yy.detach().numpy()) == int(y.detach()):
+    #         right += 1
+    #     tot += 1
+    # #
+
 avg_loss = total_loss / len(test_dataloader) 
 accuracies = [1 if p==l else 0 for p,l in zip(total_preds, total_labels)]
 print(f"Average accuracy over {len(X_pert)} evaluations: {np.mean(accuracies)} \pm {0.}")
+
+# # confirm results
+# print(right/tot)
+# #
