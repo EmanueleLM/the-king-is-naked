@@ -16,15 +16,16 @@ The training parameters are declared at the beginning of each file (`# Training 
 Please go to \verify folder and run `python3 semantic_robustness_{bert, nn}.py`.
 The verificatin parameters are declared at the beginning of each file (`# Training parameters` comment).
 
-If you want to cite the code or the paper, please use the following bibtex (sson to come the AAAI bibtex):
+If you want to cite the code or the paper, please use the following bibtex (soon to come the AAAI bibtex):
 ```
-@misc{lamalfa2021king,
-      title={The King is Naked: on the Notion of Robustness for Natural Language Processing}, 
-      author={Emanuele La Malfa and Marta Kwiatkowska},
-      year={2021},
-      eprint={2112.07605},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@inproceedings{la2022king,
+  title={The king is naked: on the notion of robustness for natural language processing},
+  author={La Malfa, Emanuele and Kwiatkowska, Marta},
+  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume={36},
+  number={10},
+  pages={11047--11057},
+  year={2022}
 }
 ```
 
